@@ -11,6 +11,78 @@ Simple container
 .
 
 
+Can use {} syntax too
+.
+::: {.name}
+*content*
+:::
+.
+<div class="name">
+<p><em>content</em></p>
+</div>
+.
+
+
+Spaces are ignored
+.
+::: {    .name    }
+*content*
+:::
+.
+<div class="name">
+<p><em>content</em></p>
+</div>
+.
+
+
+Can have multiple classes
+.
+::: {.name .bold}
+*content*
+:::
+.
+<div class="name bold">
+<p><em>content</em></p>
+</div>
+.
+
+
+Even without a space
+.
+::: {.name.bold}
+*content*
+:::
+.
+<div class="name bold">
+<p><em>content</em></p>
+</div>
+.
+
+
+Can have an ID
+.
+::: {#name}
+*content*
+:::
+.
+<div id="name">
+<p><em>content</em></p>
+</div>
+.
+
+
+Or everything together
+.
+::: {#my-element .name .bold data-foo="bar"}
+*content*
+:::
+.
+<div id="my-element" class="name bold" data-foo="bar">
+<p><em>content</em></p>
+</div>
+.
+
+
 Could contain block elements too
 .
 ::: name
@@ -29,6 +101,18 @@ Could contain block elements too
 Ending marker could be longer
 .
 ::::: name :::::
+  hello world
+::::::::::::::::
+.
+<div class="name">
+<p>hello world</p>
+</div>
+.
+
+
+Same, but with {} syntax
+.
+::::: { .name } :::::
   hello world
 ::::::::::::::::
 .
@@ -144,11 +228,11 @@ xxx
 
 It could contain params
 .
-::: name arg=123 foo=456
+::: { .name arg="123" foo="456" }
 xxx
 :::
 .
-<div class="name">
+<div class="name" arg="123" foo="456">
 <p>xxx</p>
 </div>
 .
@@ -164,18 +248,6 @@ xxx
 <p>xxx
 ::: arg=123</p>
 </div>
-.
-
-
-This however isn't a valid one
-.
-::: namename
-xxx
-:::
-.
-<p>::: namename
-xxx
-:::</p>
 .
 
 

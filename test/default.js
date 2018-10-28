@@ -7,8 +7,7 @@ var generate = require('markdown-it-testgen');
 /*eslint-env mocha*/
 
 describe('default container', function () {
-  var md = require('markdown-it')()
-              .use(require('../'), 'name');
+  var md = require('markdown-it')().use(require('../'));
 
   generate(path.join(__dirname, 'fixtures/default.txt'), md);
 });

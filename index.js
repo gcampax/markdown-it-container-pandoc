@@ -2,31 +2,53 @@
 //
 'use strict';
 
+module.exports = function container_plugin(md) {
+  /* eslint max-len: "off" */
+  var NMSTARTCHAR_REGEXP = '[A-Z_a-z\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u02FF\\u0370-\\u037D\\u037F-\\u1FFF\\u200C-\\u200D\\u2070-\\u218F\\u2C00-\\u2FEF\\u3001-\\uD7FF\\uF900-\\uFDCF\\uFDF0-\\uFFFD]';
+  var NAMECHAR_REGEXP = '(?:' + NMSTARTCHAR_REGEXP + '|[-0-9.\\u00B7\\u0300-\\u036F\\u203F-\\u2040])';
+  var NAME_FENCE_REGEXP = new RegExp('^:{3,}\\s*(' + NMSTARTCHAR_REGEXP + NAMECHAR_REGEXP + '*)\\s*:*\\s*$');
 
-module.exports = function container_plugin(md, name, options) {
+  var ATTRIBUTE_PATTERN = '\\.' + NMSTARTCHAR_REGEXP + NAMECHAR_REGEXP + '*|#' + NMSTARTCHAR_REGEXP + NAMECHAR_REGEXP + '*|' + NMSTARTCHAR_REGEXP + NAMECHAR_REGEXP + '*="[^<>\'"]*"';
+  var ATTRIBUTE_FENCE_REGEXP = new RegExp('^:{3,}\\s*\\{\\s*(?:(' + ATTRIBUTE_PATTERN + ')\\s*)+\\}\\s*:*\\s*$');
 
-  function validateDefault(params) {
-    return params.trim().split(' ', 2)[0] === name;
+  function validate(params) {
+    return NAME_FENCE_REGEXP.test(params) || ATTRIBUTE_FENCE_REGEXP.test(params);
   }
 
-  function renderDefault(tokens, idx, _options, env, slf) {
-
-    // add a class to the opening tag
+  function render(tokens, idx, _options, env, slf) {
     if (tokens[idx].nesting === 1) {
-      tokens[idx].attrJoin('class', name);
+      var tokenInfo = tokens[idx].info;
+      var bareName = NAME_FENCE_REGEXP.exec(tokenInfo);
+      if (bareName !== null) {
+        // bare name: add it as a class
+        tokens[idx].attrJoin('class', bareName[1]);
+      } else {
+        tokenInfo = tokenInfo.replace(/^:{3,}\s*\{\s*/, '');
+        var attrRegexp = new RegExp(ATTRIBUTE_PATTERN, 'g');
+
+        var match;
+        while ((match = attrRegexp.exec(tokenInfo)) !== null) {
+          var attribute = match[0];
+          if (attribute.startsWith('.')) {
+            tokens[idx].attrJoin('class', attribute.substring(1).replace('.', ' '));
+          } else if (attribute.startsWith('#')) {
+            tokens[idx].attrSet('id', attribute.substring(1));
+          } else {
+            var split = attribute.split('=');
+            var attrname = split[0];
+            var value = split.slice(1).join('=').substring(1, split[1].length - 1);
+            tokens[idx].attrPush([ attrname, value ]);
+          }
+        }
+      }
+
+      // add a class to the opening tag
     }
 
     return slf.renderToken(tokens, idx, _options, env, slf);
   }
 
-  options = options || {};
-
-  var min_markers = 3,
-      marker_str  = options.marker || ':',
-      marker_char = marker_str.charCodeAt(0),
-      marker_len  = marker_str.length,
-      validate    = options.validate || validateDefault,
-      render      = options.render || renderDefault;
+  var min_markers = 3, marker_char = ':';
 
   function container(state, startLine, endLine, silent) {
     var pos, nextLine, marker_count, markup, params, token,
@@ -38,19 +60,19 @@ module.exports = function container_plugin(md, name, options) {
     // Check out the first character quickly,
     // this should filter out most of non-containers
     //
-    if (marker_char !== state.src.charCodeAt(start)) { return false; }
+    if (marker_char !== state.src[start]) { return false; }
 
     // Check out the rest of the marker string
     //
     for (pos = start + 1; pos <= max; pos++) {
-      if (marker_str[(pos - start) % marker_len] !== state.src[pos]) {
+      if (marker_char !== state.src[pos]) {
         break;
       }
     }
 
-    marker_count = Math.floor((pos - start) / marker_len);
+    marker_count = Math.floor(pos - start);
     if (marker_count < min_markers) { return false; }
-    pos -= (pos - start) % marker_len;
+    pos -= pos - start;
 
     markup = state.src.slice(start, pos);
     params = state.src.slice(pos, max);
@@ -82,7 +104,7 @@ module.exports = function container_plugin(md, name, options) {
         break;
       }
 
-      if (marker_char !== state.src.charCodeAt(start)) { continue; }
+      if (marker_char !== state.src[start]) { continue; }
 
       if (state.sCount[nextLine] - state.blkIndent >= 4) {
         // closing fence should be indented less than 4 spaces
@@ -90,18 +112,16 @@ module.exports = function container_plugin(md, name, options) {
       }
 
       for (pos = start + 1; pos <= max; pos++) {
-        if (marker_str[(pos - start) % marker_len] !== state.src[pos]) {
+        if (marker_char !== state.src[pos]) {
           break;
         }
       }
 
       // closing code fence must be at least as long as the opening one
-      if (Math.floor((pos - start) / marker_len) < marker_count) { continue; }
+      if ((pos - start) < marker_count) { continue; }
 
       // make sure tail has spaces only
-      pos -= (pos - start) % marker_len;
       pos = state.skipSpaces(pos);
-
       if (pos < max) { continue; }
 
       // found!
@@ -116,7 +136,7 @@ module.exports = function container_plugin(md, name, options) {
     // this will prevent lazy continuations from ever going past our end marker
     state.lineMax = nextLine;
 
-    token        = state.push('container_' + name + '_open', 'div', 1);
+    token        = state.push('container_open', 'div', 1);
     token.markup = markup;
     token.block  = true;
     token.info   = params;
@@ -124,7 +144,7 @@ module.exports = function container_plugin(md, name, options) {
 
     state.md.block.tokenize(state, startLine + 1, nextLine);
 
-    token        = state.push('container_' + name + '_close', 'div', -1);
+    token        = state.push('container_close', 'div', -1);
     token.markup = state.src.slice(start, pos);
     token.block  = true;
 
@@ -135,9 +155,9 @@ module.exports = function container_plugin(md, name, options) {
     return true;
   }
 
-  md.block.ruler.before('fence', 'container_' + name, container, {
+  md.block.ruler.before('fence', 'container', container, {
     alt: [ 'paragraph', 'reference', 'blockquote', 'list' ]
   });
-  md.renderer.rules['container_' + name + '_open'] = render;
-  md.renderer.rules['container_' + name + '_close'] = render;
+  md.renderer.rules.container_open = render;
+  md.renderer.rules.container_close = render;
 };

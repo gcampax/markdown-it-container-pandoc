@@ -1,5 +1,5 @@
 {
-  "name": "markdown-it-container",
+  "name": "markdown-it-container-pandoc",
   "main": "dist/markdown-it-container.js",
   "homepage": "https://github.com/markdown-it/markdown-it-container",
   "description": "Plugin to create block-level custom containers for markdown-it markdown parser",
